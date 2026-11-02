@@ -1,8 +1,16 @@
-## Workflow
-![Research Pipeline](assets/flowchart.png)
+# MIMIC-IV Sepsis Offline RL Analysis
+Offline reinforcement learning for sepsis ICU treatment decision analysis based on MIMIC-IV.
 
-### Pipeline Overview
-1. **Data Extraction and Preprocessing**: We extract sepsis trajectories from MIMIC-IV using SQL, apply inclusion/exclusion criteria, split records into 4-hour windows, perform cleaning and missing value imputation.
-2. **MDP Construction**: Formulate sequential ICU treatment as an MDP. States include patient physiological features; actions are fluid/vasopressor decisions; reward is defined based on lactate, SOFA and 28-day mortality outcome.
-3. **Offline RL Training**: Train Double DQN with CQL regularization on retrospective trajectories, split by patient ID to avoid data leakage.
-4. **Evaluation**: Compare policy recommendations against clinician decisions using matching rate and weighted importance sampling (WIS).
+## Pipeline
+1. Data extraction & preprocessing (SQL cohort, window splitting, missing imputation)
+2. MDP setup: state, action, reward definition for sepsis treatment
+3. Offline RL: Double DQN + CQL
+4. Policy evaluation via WIS and clinician matching rate
+
+> Note: This repo includes cohort extraction and preprocessing scripts only. RL training & evaluation code are withheld for manuscript preparation and MIMIC data compliance.
+
+## Structure
+- assets/: workflow figure
+- code/: SQL and Python scripts for cohort and feature processing
+
+Dataset: MIMIC-IV (PhysioNet, credential access required)
