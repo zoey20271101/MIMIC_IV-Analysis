@@ -1,1 +1,92 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
+# ================= 配置区 =================
+CSV_PATH  = "treatment_action.csv"
+COL_STAY   = "stay_id"
+COL_WINDOW = "window_index"
+COL_FLUID = "total_fluid_ml"
+COL_VASO  = "nee_max_mcg_kg_min"   # 按 Supplementary 口径用 max
+# ==========================================
+
+plt.rcParams["font.sans-serif"] = ["SimHei", "Microsoft YaHei", "Arial Unicode MS"]
+plt.rcParams["axes.unicode_minus"] = False
+
+df = pd.read_csv(CSV_PATH)
+n = len(df)
+print(f"总窗口数: {n:,}")
+
+# ---------- 1. 三档划分：0 / 低 / 高（阳性按中位数对半切） ----------
+def tri_bin(values):
+    """0 -> 0档；>0 按中位数切成低(1)/高(2)。"""
+    v = values.astype(float)
+    med = v[v > 0].median()
+    return np.select([v <= 0, v <= med], [0, 1], default=2), med
+
+df["fluid_grp"], fluid_med = tri_bin(df[COL_FLUID])
+df["vaso_grp"],  vaso_med  = tri_bin(df[COL_VASO])
+print(f"\n液体阳性中位数: {fluid_med:.2f} mL")
+print(f"升压药阳性中位数: {vaso_med:.5f} mcg/kg/min")
+
+print("\nfluid_grp (0/低/高):\n", df["fluid_grp"].value_counts().sort_index())
+print("\nvaso_grp (0/低/高):\n", df["vaso_grp"].value_counts().sort_index())
+
+# ---------- 2. 合并成 7 个档位 ----------
+# 规则（对应你的手画图）：
+#   0液体 × 任意药      -> 档位1
+#   低液体 × 0药        -> 档位2
+#   低液体 × 低药       -> 档位3
+#   低液体 × 高药       -> 档位4
+#   高液体 × 0药        -> 档位5
+#   高液体 × 低药       -> 档位6
+#   高液体 × 高药       -> 档位7
+LEVEL_MAP = {
+    (0, 0): 1, (0, 1): 1, (0, 2): 1,   # 0液体行全部合并
+    (1, 0): 2, (1, 1): 3, (1, 2): 4,   # 低液体
+    (2, 0): 5, (2, 1): 6, (2, 2): 7,   # 高液体
+}
+df["action_level"] = df.apply(
+    lambda r: LEVEL_MAP[(r["fluid_grp"], r["vaso_grp"])], axis=1
+)
+
+# ---------- 3. 输出分布 ----------
+print("\n==== 7 档位分布 ====")
+lv = df["action_level"].value_counts().sort_index()
+for k in range(1, 8):
+    print(f"档位{k}: {lv.get(k, 0):>8,}  ({lv.get(k, 0)/n:.3%})")
+
+ct = pd.crosstab(df["fluid_grp"], df["vaso_grp"])
+ct = ct.reindex(index=[0, 1, 2], columns=[0, 1, 2]).fillna(0).astype(int)
+print("\n==== 3×3 原始格子（行=液体 0/低/高，列=升压药 0/低/高）====")
+print(ct)
+
+df.to_csv("action_7levels.csv", index=False)
+print("\n已保存: action_7levels.csv")
+
+# ---------- 4. 绘图 ----------
+# 图1：3×3 格子标注合并后的档位号
+fig, ax = plt.subplots(figsize=(7, 5.5))
+annot = np.array([[str(LEVEL_MAP[(i, j)]) for j in [0, 1, 2]] for i in [0, 1, 2]])
+sns.heatmap(ct, annot=annot, fmt="", cmap="YlOrRd",
+            xticklabels=["0药", "低药", "高药"],
+            yticklabels=["0液体", "低液体", "高液体"],
+            linewidths=0.5, ax=ax)
+ax.set_title("3×3 → 7 档位合并方案（格内数字 = 档位号）")
+plt.tight_layout()
+plt.savefig("fig_7level_grid.png", dpi=150, bbox_inches="tight")
+plt.show()
+
+# 图2：7 档位频数
+fig, ax = plt.subplots(figsize=(8, 4))
+bars = ax.bar(lv.index.astype(str), lv.values, color="#4C72B0")
+ax.set_title("7 档位分布")
+ax.set_xlabel("action_level")
+ax.set_ylabel("number of windows")
+for b, c in zip(bars, lv.values):
+    ax.text(b.get_x() + b.get_width()/2, c, f"{c:,}\n({c/n:.3%})",
+            ha="center", va="bottom", fontsize=9)
+plt.tight_layout()
+plt.savefig("fig_7level_dist.png", dpi=150, bbox_inches="tight")
+plt.show()
