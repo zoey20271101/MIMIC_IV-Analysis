@@ -7,7 +7,7 @@ Offline reinforcement learning for sepsis ICU treatment decision analysis based 
 3. Offline RL: Double DQN + CQL
 4. Policy evaluation via WIS and clinician matching rate
 
-> Note: This repo includes cohort extraction and preprocessing scripts only. RL training & evaluation code are withheld for manuscript preparation and MIMIC data compliance.
+> Note: This repo includes cohort extraction and preprocessing scripts only. 
 
 ## Structure
 - assets/: workflow figure
